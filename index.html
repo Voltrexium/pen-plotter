@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pen plotter — Wanhao i3 Mini</title>
+  <style>
+    :root {
+      --paper: #f3efe6;
+      --ink: #1c1915;
+      --muted: #5e584e;
+      --line: #d9d1c3;
+      --bed: #e7e0d2;
+      --pen: #b64022;
+      --ok: #1f6b45;
+      --card: #fffdf8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 0%, #efe6d4 0, transparent 42%),
+        var(--paper);
+      color: var(--ink);
+      font: 16px/1.45 "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 16px 20px 32px;
+    }
+
+    header h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 22px;
+      margin-top: 14px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    label, .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 650;
+      margin-bottom: 6px;
+    }
+
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .file-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .file-button, button {
+      appearance: none;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #fffdf8;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button.secondary, .file-button {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.ready {
+      background: var(--ok);
+      border-color: var(--ok);
+    }
+
+    .file-name {
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .drop {
+      margin-top: 10px;
+      border: 1.5px dashed var(--line);
+      border-radius: 12px;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .drop.over {
+      border-color: var(--pen);
+      background: #fbf4ee;
+    }
+
+    .shift-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    input[type="number"] {
+      width: 72px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: 16px Consolas, "Cascadia Mono", monospace;
+    }
+
+    input[type="number"]:focus, button:focus-visible, .file-button:focus-visible {
+      outline: 2px solid var(--pen);
+      outline-offset: 2px;
+    }
+
+    .fit {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    #fit-summary {
+      margin: 0 0 10px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .note {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #f7f1e4;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .note strong { font-weight: 650; }
+
+    #status {
+      min-height: 1.3em;
+      margin: 12px 0 0;
+      font-size: 14px;
+    }
+
+    #status.error { color: var(--pen); }
+    #status.ok { color: var(--ok); }
+
+    .preview-wrap { padding: 12px 12px 16px; }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: var(--bed);
+      border-radius: 8px;
+    }
+
+    .caption {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    details {
+      margin-top: 18px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      overflow: auto;
+      max-height: 320px;
+      background: #221f1b;
+      color: #f3efe6;
+      border-radius: 10px;
+      font: 12px/1.45 Consolas, "Cascadia Mono", monospace;
+      white-space: pre;
+    }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Pen plotter</h1>
+      <p>Wanhao Duplicator i3 Mini · bed 120 × 135 mm · height 100 mm</p>
+    </header>
+
+    <div class="layout">
+      <section class="card" id="drop-zone">
+        <label for="file-input">SVG file</label>
+        <div class="file-row">
+          <label class="file-button" for="file-input">Choose SVG</label>
+          <input id="file-input" type="file" accept=".svg,image/svg+xml">
+          <span class="file-name" id="file-name">No file yet</span>
+        </div>
+        <div class="drop" id="drop">Drop an SVG here. pic.svg in this folder loads on its own.</div>
+
+        <div class="shift-row">
+          <label for="height-shift">Height shift (mm)</label>
+          <input id="height-shift" type="number" min="0.2" max="30" step="0.1" value="3">
+        </div>
+        <p class="hint">How far the pen lifts between lines. Each lift is that many millimeters, and no more.</p>
+
+        <div class="shift-row">
+          <label for="paper-w">Paper (mm)</label>
+          <input id="paper-w" type="number" min="20" max="120" step="1" value="100" aria-label="Paper width in millimeters">
+          <span>×</span>
+          <input id="paper-h" type="number" min="20" max="135" step="1" value="120" aria-label="Paper height in millimeters">
+        </div>
+        <p class="hint">Width × depth of the sheet. The drawing is scaled to fit inside it. Maximum 120 × 135 mm.</p>
+
+        <div class="fit">
+          <p class="field-label">Scale to the paper</p>
+          <p id="fit-summary">Load an SVG to see the fitted size.</p>
+          <div class="actions">
+            <button type="button" id="confirm-btn" class="secondary" disabled>Confirm this scale</button>
+            <button type="button" id="download-btn" disabled>Download G-code</button>
+          </div>
+        </div>
+
+        <div class="note">
+          <strong>Before you print.</strong>
+          Jog the pen to the front-left corner of the paper until the tip just touches.
+          The file does not home. That spot becomes X0 Y0 Z0, and the pen lifts only by the height shift.
+          From there, +X moves right and +Y moves toward the back.
+        </div>
+        <p id="status" role="status"></p>
+      </section>
+
+      <section class="card preview-wrap">
+        <p class="field-label">Paper preview</p>
+        <canvas id="preview" width="640" height="720"></canvas>
+        <p class="caption" id="caption">The rectangle is the sheet. Put the pen at its front-left corner.</p>
+      </section>
+    </div>
+
+    <details id="gcode-details">
+      <summary>G-code preview</summary>
+      <pre id="gcode-preview">Confirm the scale, then download. The preview appears here.</pre>
+    </details>
+  </main>
+
+  <script>
+    const BED_W = 120;
+    const BED_H = 135;
+    const MARGIN = 5;
+    const CHORD_MM = 0.4;
+    const DRAW_F = 1200;
+    const TRAVEL_F = 3000;
+    const Z_F = 300;
+
+    const fileInput = document.getElementById("file-input");
+    const fileNameEl = document.getElementById("file-name");
+    const drop = document.getElementById("drop");
+    const shiftInput = document.getElementById("height-shift");
+    const paperWInput = document.getElementById("paper-w");
+    const paperHInput = document.getElementById("paper-h");
+    const confirmBtn = document.getElementById("confirm-btn");
+    const downloadBtn = document.getElementById("download-btn");
+    const statusEl = document.getElementById("status");
+    const canvas = document.getElementById("preview");
+    const gcodePreview = document.getElementById("gcode-preview");
+    const gcodeDetails = document.getElementById("gcode-details");
+
+    const svgHost = document.createElement("div");
+    svgHost.setAttribute("aria-hidden", "true");
+    svgHost.style.cssText = "position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;z-index:-1;";
+    document.body.appendChild(svgHost);
+
+    let job = null;
+    let svgSource = null;
+    let scaleConfirmed = false;
+    let lastGcode = "";
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message || "";
+      statusEl.className = kind || "";
+    }
+
+    function readShift() {
+      const value = Number(shiftInput.value);
+      if (!Number.isFinite(value) || value < 0.2 || value > 30) return null;
+      return Math.round(value * 1000) / 1000;
+    }
+
+    function readPaper() {
+      const w = Number(paperWInput.value);
+      const h = Number(paperHInput.value);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w < 20 || h < 20 || w > BED_W || h > BED_H) return null;
+      return { w: w, h: h };
+    }
+
+    function fmt(n, digits) {
+      return Number(n).toFixed(digits);
+    }
+
+    function setFitPlaceholder(text) {
+      document.getElementById("fit-summary").textContent = text;
+    }
+
+    function refreshActions() {
+      const shift = readShift();
+      const paper = readPaper();
+      confirmBtn.disabled = !job || paper == null;
+      downloadBtn.disabled = !job || !scaleConfirmed || shift == null || paper == null;
+      downloadBtn.textContent = "Download G-code";
+      confirmBtn.textContent = scaleConfirmed ? "Scale confirmed" : "Confirm this scale";
+      confirmBtn.className = scaleConfirmed ? "ready" : "secondary";
+      if (shift == null && job) {
+        setStatus("Enter a height shift from 0.2 to 30 mm.", "error");
+      } else if (paper == null && svgSource) {
+        setStatus("Enter a paper size up to 120 × 135 mm, at least 20 mm on each side.", "error");
+      }
+    }
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) readFile(file);
+    });
+
+    ["dragenter", "dragover"].forEach((name) => {
+      drop.addEventListener(name, (event) => {
+        event.preventDefault();
+        drop.classList.add("over");
+      });
+    });
+    ["dragleave", "drop"].forEach((name) => {
+      drop.addEventListener(name, (event) => {
+        event.preventDefault();
+        drop.classList.remove("over");
+      });
+    });
+    drop.addEventListener("drop", (event) => {
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (!file) return;
+      readFile(file);
+    });
+
+    shiftInput.addEventListener("input", () => {
+      lastGcode = "";
+      gcodePreview.textContent = "Height shift updated. Download again to write it into the file.";
+      if (readShift() != null && job) setStatus("");
+      refreshActions();
+      if (job) drawPreview(job);
+    });
+
+    [paperWInput, paperHInput].forEach((input) => {
+      input.addEventListener("input", () => {
+        scaleConfirmed = false;
+        lastGcode = "";
+        gcodePreview.textContent = "Paper size updated. Confirm the scale again.";
+        refit();
+      });
+    });
+
+    confirmBtn.addEventListener("click", () => {
+      if (!job) return;
+      scaleConfirmed = true;
+      setStatus(
+        "Scale confirmed: " + fmt(job.drawW, 1) + " × " + fmt(job.drawH, 1) + " mm. You can download the G-code.",
+        "ok"
+      );
+      refreshActions();
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      const shift = readShift();
+      if (!job || !scaleConfirmed || shift == null) return;
+      lastGcode = buildGcode(job, shift);
+      const base = job.name.replace(/\.svg$/i, "") || "plot";
+      downloadText(base + ".gcode", lastGcode);
+      gcodePreview.textContent = previewGcode(lastGcode);
+      gcodeDetails.open = true;
+      setStatus(
+        "Wrote " + base + ".gcode · " + job.strokes.length + " stroke(s) · pen lift " + fmt(shift, 3) + " mm.",
+        "ok"
+      );
+    });
+
+    function readFile(file) {
+      const name = file.name || "drawing.svg";
+      if (!/\.svg$/i.test(name) && file.type && file.type !== "image/svg+xml") {
+        setStatus("Choose an .svg file.", "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => loadSvgText(String(reader.result), name);
+      reader.onerror = () => setStatus("Could not read that file.", "error");
+      reader.readAsText(file);
+    }
+
+    function loadSvgText(text, name) {
+      svgSource = { text: text, name: name };
+      scaleConfirmed = false;
+      lastGcode = "";
+      gcodePreview.textContent = "Confirm the scale, then download. The preview appears here.";
+      fileNameEl.textContent = name;
+      refit();
+    }
+
+    function refit() {
+      const paper = readPaper();
+      if (!svgSource) return;
+      if (!paper) {
+        job = null;
+        setFitPlaceholder("Enter a paper size");
+        drawPreview(null);
+        refreshActions();
+        return;
+      }
+      try {
+        job = parseSvg(svgSource.text, svgSource.name, paper);
+      } catch (error) {
+        job = null;
+        setFitPlaceholder("Could not use this file");
+        drawPreview(null);
+        setStatus(error.message || "Could not read that SVG.", "error");
+        refreshActions();
+        return;
+      }
+      document.getElementById("fit-summary").textContent =
+        fmt(job.drawW, 1) + " × " + fmt(job.drawH, 1) + " mm on a " +
+        fmt(job.paperW, 0) + " × " + fmt(job.paperH, 0) + " mm sheet. " +
+        "X " + fmt(job.minX, 1) + "–" + fmt(job.maxX, 1) +
+        " mm, Y " + fmt(job.minY, 1) + "–" + fmt(job.maxY, 1) +
+        " mm from the pen. Scale " + fmt(job.scale, 4) + " mm/unit. " +
+        job.strokes.length + " stroke" + (job.strokes.length === 1 ? "" : "s") + ".";
+      drawPreview(job);
+      document.getElementById("caption").textContent =
+        "Dashed line is the 5 mm margin. Put the pen at the front-left corner of this sheet.";
+      setStatus("Check the size on the paper, then confirm the scale.", "");
+      refreshActions();
+    }
+
+    function parseSvg(text, name, paper) {
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      if (doc.querySelector("parsererror")) {
+        throw new Error("That file is not valid SVG.");
+      }
+      const parsed = doc.documentElement;
+      if (!parsed || parsed.localName !== "svg") {
+        throw new Error("That file is not an SVG.");
+      }
+      sanitize(parsed);
+      svgHost.replaceChildren();
+      const svg = document.importNode(parsed, true);
+      if (!svg.getAttribute("xmlns")) {
+        svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      }
+      svgHost.appendChild(svg);
+      svg.getBoundingClientRect();
+
+      const elements = [...svg.querySelectorAll("path, line, polyline, polygon, rect, circle, ellipse")]
+        .filter((el) => !el.closest("defs, symbol, clipPath, mask, marker, pattern"))
+        .filter((el) => !isHidden(el, svg));
+
+      if (!elements.length) {
+        throw new Error("No drawable paths, lines, or shapes were found in this SVG.");
+      }
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      elements.forEach((el) => {
+        const box = elementBounds(el, svg);
+        if (!box) return;
+        minX = Math.min(minX, box.minX);
+        minY = Math.min(minY, box.minY);
+        maxX = Math.max(maxX, box.maxX);
+        maxY = Math.max(maxY, box.maxY);
+      });
+      if (!Number.isFinite(minX) || maxX - minX < 1e-9 && maxY - minY < 1e-9) {
+        throw new Error("The drawing has no size to scale.");
+      }
+
+      const availW = paper.w - MARGIN * 2;
+      const availH = paper.h - MARGIN * 2;
+      const spanX = Math.max(0, maxX - minX);
+      const spanY = Math.max(0, maxY - minY);
+      const scaleX = spanX > 1e-9 ? availW / spanX : Infinity;
+      const scaleY = spanY > 1e-9 ? availH / spanY : Infinity;
+      const scale = Math.min(scaleX, scaleY);
+      const drawW = spanX * scale;
+      const drawH = spanY * scale;
+      const originX = MARGIN + (availW - drawW) / 2;
+      const originY = MARGIN + (availH - drawH) / 2;
+      const stepUser = CHORD_MM / scale;
+
+      const strokes = [];
+      elements.forEach((el) => {
+        sampleElement(el, svg, stepUser).forEach((stroke) => {
+          const mm = stroke.map((point) => ({
+            x: originX + (point.x - minX) * scale,
+            y: originY + (maxY - point.y) * scale
+          }));
+          const cleaned = [];
+          mm.forEach((point) => {
+            const prev = cleaned[cleaned.length - 1];
+            if (prev && Math.hypot(prev.x - point.x, prev.y - point.y) < 0.05) return;
+            cleaned.push(point);
+          });
+          if (cleaned.length > 1) strokes.push(cleaned);
+        });
+      });
+
+      if (!strokes.length) {
+        throw new Error("The shapes in this SVG did not produce any pen strokes.");
+      }
+
+      let sMinX = Infinity;
+      let sMinY = Infinity;
+      let sMaxX = -Infinity;
+      let sMaxY = -Infinity;
+      strokes.forEach((stroke) => {
+        stroke.forEach((point) => {
+          sMinX = Math.min(sMinX, point.x);
+          sMinY = Math.min(sMinY, point.y);
+          sMaxX = Math.max(sMaxX, point.x);
+          sMaxY = Math.max(sMaxY, point.y);
+        });
+      });
+      if (sMinX < -0.05 || sMinY < -0.05 || sMaxX > paper.w + 0.05 || sMaxY > paper.h + 0.05) {
+        throw new Error("The scaled drawing falls outside the paper.");
+      }
+
+      return {
+        name,
+        strokes,
+        scale,
+        drawW,
+        drawH,
+        paperW: paper.w,
+        paperH: paper.h,
+        minX: sMinX,
+        minY: sMinY,
+        maxX: sMaxX,
+        maxY: sMaxY,
+        svgW: spanX,
+        svgH: spanY
+      };
+    }
+
+    function sanitize(svg) {
+      svg.querySelectorAll("script, foreignObject, iframe, object, embed").forEach((node) => node.remove());
+      svg.querySelectorAll("*").forEach((el) => {
+        [...el.attributes].forEach((attr) => {
+          const attrName = attr.name.toLowerCase();
+          const value = attr.value.trim().toLowerCase();
+          if (attrName.startsWith("on") || (attrName === "href" && value.startsWith("javascript:"))) {
+            el.removeAttribute(attr.name);
+          }
+        });
+      });
+    }
+
+    function isHidden(el, svg) {
+      for (let node = el; node && node !== svg; node = node.parentElement) {
+        if (node.getAttribute("display") === "none") return true;
+        if (node.getAttribute("visibility") === "hidden") return true;
+        const style = node.getAttribute("style") || "";
+        if (/display\s*:\s*none/i.test(style) || /visibility\s*:\s*hidden/i.test(style)) return true;
+      }
+      return false;
+    }
+
+    function applyMatrix(matrix, x, y) {
+      return {
+        x: matrix.a * x + matrix.c * y + matrix.e,
+        y: matrix.b * x + matrix.d * y + matrix.f
+      };
+    }
+
+    function toUser(el, svg, x, y) {
+      const elementMatrix = el.getScreenCTM();
+      const rootMatrix = svg.getScreenCTM();
+      if (!elementMatrix || !rootMatrix) return null;
+      const inverse = rootMatrix.inverse();
+      if (!inverse) return null;
+      const screen = applyMatrix(elementMatrix, x, y);
+      return applyMatrix(inverse, screen.x, screen.y);
+    }
+
+    function elementBounds(el, svg) {
+      let box;
+      try {
+        box = el.getBBox();
+      } catch (error) {
+        return null;
+      }
+      if (!box || !Number.isFinite(box.width) || !Number.isFinite(box.height)) return null;
+      const corners = [
+        [box.x, box.y],
+        [box.x + box.width, box.y],
+        [box.x, box.y + box.height],
+        [box.x + box.width, box.y + box.height]
+      ];
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      corners.forEach(([x, y]) => {
+        const point = toUser(el, svg, x, y);
+        if (!point) return;
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      });
+      if (!Number.isFinite(minX)) return null;
+      return { minX, minY, maxX, maxY };
+    }
+
+    function sampleElement(el, svg, stepUser) {
+      const length = el.getTotalLength();
+      if (!Number.isFinite(length) || length <= 0) return [];
+      const tag = el.localName;
+      const minSamples = tag === "circle" || tag === "ellipse" ? 64 : 2;
+      const count = Math.min(8000, Math.max(minSamples, Math.ceil(length / stepUser)));
+      const strokes = [];
+      let current = [];
+      let previous = null;
+
+      for (let i = 0; i <= count; i += 1) {
+        const distance = Math.min(length, (length * i) / count);
+        const local = el.getPointAtLength(distance);
+        const point = toUser(el, svg, local.x, local.y);
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+        if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) > stepUser * 1.75) {
+          pushStroke(strokes, current, stepUser);
+          current = [point];
+        } else {
+          current.push(point);
+        }
+        previous = point;
+      }
+      pushStroke(strokes, current, stepUser);
+      return strokes;
+    }
+
+    function pushStroke(strokes, points, stepUser) {
+      if (points.length < 2) return;
+      const start = points[0];
+      const end = points[points.length - 1];
+      const gap = Math.hypot(start.x - end.x, start.y - end.y);
+      const closed = gap > 0.001 && gap < stepUser * 1.2 ? points.concat([start]) : points;
+      if (closed.length > 1) strokes.push(closed);
+    }
+
+    function buildGcode(current, shift) {
+      const up = fmt(shift, 3);
+      const lines = [
+        "; Pen plotter G-code for Wanhao Duplicator i3 Mini",
+        "; Paper " + fmt(current.paperW, 1) + " x " + fmt(current.paperH, 1) + " mm",
+        "; Source: " + current.name,
+        "; SVG size: " + fmt(current.svgW, 2) + " x " + fmt(current.svgH, 2) + " user units",
+        "; Scale: " + fmt(current.scale, 6) + " mm per user unit",
+        "; Drawing: " + fmt(current.drawW, 2) + " x " + fmt(current.drawH, 2) + " mm",
+        "; Bounds X " + fmt(current.minX, 3) + " to " + fmt(current.maxX, 3) +
+          "   Y " + fmt(current.minY, 3) + " to " + fmt(current.maxY, 3),
+        "; Height shift: " + up + " mm, relative to the paper",
+        "; Jog the pen to the front-left corner of the paper, tip touching.",
+        "; This file does not home. That point becomes X0 Y0 Z0.",
+        "G21 ; millimeters",
+        "G90 ; absolute XY",
+        "G92 X0 Y0 Z0 ; pen tip on the paper, at the front-left corner"
+      ];
+
+      current.strokes.forEach((stroke, index) => {
+        const start = stroke[0];
+        lines.push("; stroke " + (index + 1));
+        lines.push("G91 ; pen up by the height shift only");
+        lines.push("G1 Z" + up + " F" + Z_F);
+        lines.push("G90");
+        lines.push("G0 X" + fmt(start.x, 3) + " Y" + fmt(start.y, 3) + " F" + TRAVEL_F);
+        lines.push("G91 ; pen down onto the paper");
+        lines.push("G1 Z-" + up + " F" + Z_F);
+        lines.push("G90");
+        for (let i = 1; i < stroke.length; i += 1) {
+          lines.push("G1 X" + fmt(stroke[i].x, 3) + " Y" + fmt(stroke[i].y, 3) + " F" + DRAW_F);
+        }
+      });
+
+      lines.push("G91 ; pen up for the return");
+      lines.push("G1 Z" + up + " F" + Z_F);
+      lines.push("G90");
+      lines.push("G0 X0 Y0 F" + TRAVEL_F + " ; back to the start corner");
+      lines.push("G91 ; back to the starting height");
+      lines.push("G1 Z-" + up + " F" + Z_F);
+      lines.push("G90");
+      lines.push("M84 ; motors off");
+      return lines.join("\n") + "\n";
+    }
+
+    function previewGcode(gcode) {
+      const lines = gcode.trimEnd().split("\n");
+      if (lines.length <= 1500) return lines.join("\n");
+      const hidden = lines.length - 55;
+      return lines.slice(0, 40).join("\n") +
+        "\n; ... " + hidden + " lines omitted ...\n" +
+        lines.slice(-15).join("\n");
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function drawPreview(current) {
+      const frameW = current ? current.paperW : 100;
+      const frameH = current ? current.paperH : 120;
+      const dpr = window.devicePixelRatio || 1;
+      const pad = 28;
+      const maxW = Math.max(240, canvas.parentElement.clientWidth - 8);
+      const maxH = Math.max(260, Math.min(480, window.innerHeight - 210));
+      let plotW = maxW - pad * 2;
+      let plotH = plotW * (frameH / frameW);
+      if (plotH > maxH - pad * 2) {
+        plotH = maxH - pad * 2;
+        plotW = plotH * (frameW / frameH);
+      }
+      const width = Math.round(plotW + pad * 2);
+      const height = Math.round(plotH + pad * 2);
+      plotW = width - pad * 2;
+      plotH = height - pad * 2;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#e7e0d2";
+      ctx.fillRect(0, 0, width, height);
+
+      const mapX = (mm) => pad + (mm / frameW) * plotW;
+      const mapY = (mm) => pad + ((frameH - mm) / frameH) * plotH;
+
+      ctx.strokeStyle = "#8a8172";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(mapX(MARGIN), mapY(frameH - MARGIN), (plotW * (frameW - MARGIN * 2)) / frameW, (plotH * (frameH - MARGIN * 2)) / frameH);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#1c1915";
+      ctx.strokeRect(mapX(0), mapY(frameH), plotW, plotH);
+
+      ctx.fillStyle = "#5e584e";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText("back", mapX(0), mapY(frameH) - 8);
+      ctx.fillText("pen start", mapX(0), mapY(0) + 16);
+
+      if (!current) return;
+      ctx.strokeStyle = "#b64022";
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      current.strokes.forEach((stroke) => {
+        ctx.beginPath();
+        stroke.forEach((point, index) => {
+          const x = mapX(point.x);
+          const y = mapY(point.y);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    window.addEventListener("resize", () => drawPreview(job));
+
+    fetch("pic.svg")
+      .then((response) => {
+        if (!response.ok) throw new Error("missing");
+        return response.text();
+      })
+      .then((text) => loadSvgText(text, "pic.svg"))
+      .catch(() => {
+        fileNameEl.textContent = "Choose an SVG";
+        setStatus("pic.svg was not loaded. Choose a file to continue.", "");
+        drawPreview(null);
+      });
+
+    refreshActions();
+    drawPreview(null);
+  </script>
+</body>
+</html>
