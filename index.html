@@ -21,11 +21,41 @@
     body {
       margin: 0;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       background:
         radial-gradient(circle at 12% 0%, #efe6d4 0, transparent 42%),
         var(--paper);
       color: var(--ink);
       font: 16px/1.45 "Segoe UI", sans-serif;
+    }
+
+    .site-nav {
+      width: 100%;
+      flex-shrink: 0;
+      background: #12182b;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .site-nav__link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.7rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #9aa8c4;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .site-nav__link:hover {
+      color: #c8d4e8;
+    }
+
+    .site-nav__link svg {
+      flex-shrink: 0;
+      opacity: 0.85;
     }
 
     main {
@@ -237,6 +267,14 @@
   </style>
 </head>
 <body>
+  <nav class="site-nav" aria-label="Site navigation">
+    <a href="/" class="site-nav__link">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back to Portfolio
+    </a>
+  </nav>
   <main>
     <header>
       <h1>Pen plotter</h1>
